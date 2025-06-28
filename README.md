@@ -13,7 +13,7 @@ This webhook receives switch port reservation events and configures/restores swi
 - **Switch Port Configuration**: Automatically assigns switch ports to specific VLANs based on custom parameters
 - **VLAN Management**: Creates VLANs dynamically and manages port assignments
 - **Port Restoration**: Restores ports to default VLAN when reservations end
-- **Batch Processing**: Supports batch configuration/restoration operations
+- **Single Event Processing**: Processes individual switch port events (migrated from batch processing)
 - **Security**: HMAC signature verification for webhook security
 - **Monitoring**: Health checks and comprehensive logging
 - **Switch Integration**: Supports Cisco IOS switches via SSH/Netmiko
@@ -69,11 +69,12 @@ curl -X POST http://localhost:5002/webhook \
   -H "Content-Type: application/json" \
   -d '{
     "eventType": "EVENT_START",
-    "events": [{
-      "resourceType": "Switch Port",
-      "resourceName": "switch-port-1",
-      "customParameters": "{\"vlan_name\": \"VLAN_USER_123\"}"
-    }]
+    "eventId": "event-123",
+    "userId": "user-456",
+    "username": "giovanni.mirarchi",
+    "resourceType": "Switch Port",
+    "resourceName": "switch-port-1",
+    "customParameters": "{\"vlan_name\": \"VLAN_USER_123\"}"
   }'
 ```
 
@@ -97,18 +98,12 @@ This webhook configures Cisco IOS switches with the following operations:
 {
   "eventType": "EVENT_START",
   "timestamp": "2025-06-28T14:30:00.000Z",
-  "eventCount": 1,
-  "webhookId": "webhook-123",
+  "eventId": "event-123",
   "userId": "user-456",
   "username": "giovanni.mirarchi",
-  "events": [
-    {
-      "eventId": "101",
-      "resourceName": "switch-port-24",
-      "resourceType": "Switch Port",
-      "customParameters": "{\"vlan_name\": \"VLAN_RESEARCH_LAB\"}"
-    }
-  ]
+  "resourceType": "Switch Port",
+  "resourceName": "switch-port-24",
+  "customParameters": "{\"vlan_name\": \"VLAN_RESEARCH_LAB\"}"
 }
 ```
 

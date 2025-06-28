@@ -8,7 +8,7 @@ from typing import Optional, List, Union
 from datetime import datetime
 import uuid
 
-from fastapi import FastAPI, Request, Header, HTTPException, status
+from fastapi import APIRouter, Request, Header, HTTPException, status
 from fastapi.responses import JSONResponse
 
 from . import config, models, utils
@@ -21,13 +21,7 @@ EVENT_START = 'EVENT_START'
 EVENT_END = 'EVENT_END'
 EVENT_DELETED = 'EVENT_DELETED'
 
-# Create FastAPI app
-app = FastAPI(
-    title="Switch Port Webhook",
-    description="Webhook service for switch port VLAN configuration",
-    version="1.0.0"
-)
-
+router = APIRouter()
 
 async def _verify_webhook_signature(request: Request, signature: Optional[str]) -> bytes:
     """
@@ -56,11 +50,11 @@ async def _verify_webhook_signature(request: Request, signature: Optional[str]) 
     return raw_payload
 
 
-def _create_batch_success_response(action: str, count: int, user_id: Optional[str]) -> JSONResponse:
-    """Create a standardized success response for batch operations."""
+def _create_success_response(action: str, resource_name: str, user_id: Optional[str]) -> JSONResponse:
+    """Create a standardized success response for single event operations."""
     return JSONResponse({
         "status": "success",
-        "message": f"Successfully {action}ed {count} switch port(s)",
+        "message": f"Successfully {action}d switch port '{resource_name}'",
         "userId": user_id,
         "timestamp": datetime.now().isoformat()
     })
@@ -69,9 +63,8 @@ def _create_batch_success_response(action: str, count: int, user_id: Optional[st
 def _handle_switch_port_start_event(
     resource_name: str,
     custom_parameters: Optional[str],
-    webhook_id: str,
-    user_id: str,
-    event_id: Optional[str] = None
+    event_id: str,
+    user_id: str
 ) -> bool:
     """
     Handle switch port reservation start event. Returns True on success.
@@ -98,7 +91,7 @@ def _handle_switch_port_start_event(
             
             # Send success notification
             notification.send_switch_port_notification(
-                webhook_id=webhook_id,
+                webhook_id=event_id,
                 user_id=user_id,
                 resource_name=resource_name,
                 success=True,
@@ -107,7 +100,7 @@ def _handle_switch_port_start_event(
             
             # Send webhook log for successful configuration
             notification.send_webhook_log(
-                webhook_id=webhook_id,
+                webhook_id=event_id,
                 event_type=EVENT_START,
                 success=True,
                 status_code=200,
@@ -122,7 +115,7 @@ def _handle_switch_port_start_event(
             
             # Send failure notification
             notification.send_switch_port_notification(
-                webhook_id=webhook_id,
+                webhook_id=event_id,
                 user_id=user_id,
                 resource_name=resource_name,
                 success=False,
@@ -137,7 +130,7 @@ def _handle_switch_port_start_event(
         
         # Send failure notification
         notification.send_switch_port_notification(
-            webhook_id=webhook_id,
+            webhook_id=event_id,
             user_id=user_id,
             resource_name=resource_name,
             success=False,
@@ -150,9 +143,8 @@ def _handle_switch_port_start_event(
 
 def _handle_switch_port_end_event(
     resource_name: str,
-    webhook_id: str,
-    user_id: str,
-    event_id: Optional[str] = None
+    event_id: str,
+    user_id: str
 ) -> bool:
     """
     Handle switch port reservation end event. Returns True on success.
@@ -173,7 +165,7 @@ def _handle_switch_port_end_event(
             
             # Send success notification
             notification.send_switch_port_notification(
-                webhook_id=webhook_id,
+                webhook_id=event_id,
                 user_id=user_id,
                 resource_name=resource_name,
                 success=True,
@@ -182,7 +174,7 @@ def _handle_switch_port_end_event(
             
             # Send webhook log for successful restoration
             notification.send_webhook_log(
-                webhook_id=webhook_id,
+                webhook_id=event_id,
                 event_type=EVENT_END,
                 success=True,
                 status_code=200,
@@ -197,7 +189,7 @@ def _handle_switch_port_end_event(
             
             # Send failure notification
             notification.send_switch_port_notification(
-                webhook_id=webhook_id,
+                webhook_id=event_id,
                 user_id=user_id,
                 resource_name=resource_name,
                 success=False,
@@ -212,7 +204,7 @@ def _handle_switch_port_end_event(
         
         # Send failure notification
         notification.send_switch_port_notification(
-            webhook_id=webhook_id,
+            webhook_id=event_id,
             user_id=user_id,
             resource_name=resource_name,
             success=False,
@@ -223,7 +215,7 @@ def _handle_switch_port_end_event(
         return False
 
 
-@app.post("/webhook")
+@router.post("/webhook")
 async def handle_webhook(
     payload: Union[models.WebhookPayload, models.EventWebhookPayload],
     request: Request, 
@@ -237,82 +229,62 @@ async def handle_webhook(
     
     raw_payload = await _verify_webhook_signature(request, x_webhook_signature)
     
-    # Log based on the payload structure
+    # Handle single event payload format
     if isinstance(payload, models.WebhookPayload):
-        active_resources_count = len(payload.active_resources) if payload.active_resources else 0
         logger.info(
-            f"Processing switch port webhook. Event Type: '{payload.event_type}', "
-            f"User: '{payload.username}', Event Count: {payload.event_count}, "
-            f"Active Resources Count: {active_resources_count}."
+            f"Processing single switch port webhook event. Event Type: '{payload.event_type}', "
+            f"User: '{payload.username}', Resource: '{payload.resource_name}', "
+            f"Resource Type: '{payload.resource_type}'."
         )
 
-        # Filter events to only include Switch Port resource types
-        switch_port_events = [event for event in payload.events if event.resource_type == "Switch Port"]
-        if len(switch_port_events) != len(payload.events):
-            logger.info(f"Filtered {len(payload.events) - len(switch_port_events)} non-Switch Port events. Processing {len(switch_port_events)} Switch Port events.")
-        
-        if not switch_port_events:
-            logger.info("No Switch Port events found in payload. No action taken.")
+        # Check if this is a Switch Port resource type
+        if payload.resource_type != "Switch Port":
+            logger.info(f"Skipping non-Switch Port resource '{payload.resource_name}' of type '{payload.resource_type}'. No action taken.")
             return JSONResponse({
                 "status": "success",
-                "message": "No Switch Port events to process."
+                "message": f"No action needed for resource type '{payload.resource_type}'."
             })
 
-        # Log active resources if present (only Switch Ports)
-        if payload.active_resources:
-            active_switch_ports = [res for res in payload.active_resources if res.resource_type == "Switch Port"]
-            if active_switch_ports:
-                logger.info(f"User '{payload.username}' has {len(active_switch_ports)} active Switch Port resources:")
-                for active_resource in active_switch_ports:
-                    logger.info(
-                        f"  - Active Switch Port: '{active_resource.resource_name}' "
-                        f"Event: '{active_resource.event_title}' (until {active_resource.event_end})"
-                    )
-        else:
-            logger.info(f"User '{payload.username}' has no active Switch Port resources at this time.")
-            
-        processed_events_count = 0
-        failed_event_details = []
-
+        # Process the single switch port event
         if payload.event_type == EVENT_START:
-            for event in switch_port_events:
-                if _handle_switch_port_start_event(
-                    event.resource_name,
-                    event.custom_parameters,
-                    payload.webhook_id,
-                    payload.user_id or "unknown",
-                    event.event_id
-                ):
-                    processed_events_count += 1
-                else:
-                    failed_event_details.append({"event_id": event.event_id, "resource_name": event.resource_name, "action": "configure"})
+            if _handle_switch_port_start_event(
+                payload.resource_name,
+                payload.custom_parameters,
+                payload.event_id,
+                payload.user_id or "unknown"
+            ):
+                return _create_success_response("configure", payload.resource_name, payload.user_id)
+            else:
+                logger.error(f"Failed to configure switch port '{payload.resource_name}' for event {payload.event_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to configure switch port '{payload.resource_name}'"
+                )
 
         elif payload.event_type == EVENT_END:
-            for event in switch_port_events:
-                if _handle_switch_port_end_event(
-                    event.resource_name,
-                    payload.webhook_id,
-                    payload.user_id or "unknown",
-                    event.event_id
-                ):
-                    processed_events_count += 1
-                else:
-                    failed_event_details.append({"event_id": event.event_id, "resource_name": event.resource_name, "action": "restore"})
-        
-        if failed_event_details:
-            logger.error(f"Switch port webhook processing for user {payload.username} (Event Type: {payload.event_type}) encountered {len(failed_event_details)} failures out of {len(switch_port_events)} events.")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Processing for event type '{payload.event_type}' failed for {len(failed_event_details)} out of {len(switch_port_events)} Switch Port events. Failures: {failed_event_details}"
-            )
-        
-        # If all events (if any) were processed successfully
-        return _create_batch_success_response(payload.event_type.lower(), processed_events_count, payload.user_id)
+            if _handle_switch_port_end_event(
+                payload.resource_name,
+                payload.event_id,
+                payload.user_id or "unknown"
+            ):
+                return _create_success_response("restore", payload.resource_name, payload.user_id)
+            else:
+                logger.error(f"Failed to restore switch port '{payload.resource_name}' for event {payload.event_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to restore switch port '{payload.resource_name}'"
+                )
+        else:
+            logger.info(f"No action configured for event type '{payload.event_type}'.")
+            return JSONResponse({
+                "status": "success",
+                "message": f"No action needed for event type '{payload.event_type}'."
+            })
 
     elif isinstance(payload, models.EventWebhookPayload):
         logger.info(
             f"Processing switch port EVENT_DELETED webhook. "
-            f"Webhook ID: '{payload.webhook_id}', Resource Name: '{payload.data.resource.name}'."
+            f"Resource Name: '{payload.data.resource.name}'."
         )
         
         if payload.event_type == EVENT_DELETED:
@@ -328,9 +300,8 @@ async def handle_webhook(
                 logger.info(f"Reservation for switch port '{payload.data.resource.name}' is currently active. Restoring to default VLAN.")
                 if _handle_switch_port_end_event(
                     payload.data.resource.name,
-                    payload.webhook_id,
-                    payload.data.keycloak_id if payload.data else "unknown",
-                    str(payload.data.id)
+                    str(payload.data.id),
+                    payload.data.keycloak_id if payload.data else "unknown"
                 ):
                     logger.info(f"Successfully restored switch port '{payload.data.resource.name}' to default VLAN due to EVENT_DELETED.")
                     return JSONResponse({
@@ -366,7 +337,7 @@ async def handle_webhook(
         })
 
 
-@app.get("/healthz")
+@router.get("/healthz")
 def health_check() -> dict:
     """Health check endpoint."""
     return {"status": "healthy", "service": "switch-port-webhook"}

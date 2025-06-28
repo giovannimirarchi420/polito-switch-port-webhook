@@ -15,7 +15,6 @@ spec:
       labels:
         app: webhook-switch-port-client
     spec:
-      serviceAccountName: webhook-switch-port-client-sa
       containers:
       - name: webhook-switch-port-client
         image: docker.io/g420/polito-switch-port-webhook-client:0.0.1
