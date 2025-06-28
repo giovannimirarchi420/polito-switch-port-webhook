@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webhook-switch-port-client
+  namespace: prognose
+  labels:
+    app: webhook-switch-port-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webhook-switch-port-client
+  template:
+    metadata:
+      labels:
+        app: webhook-switch-port-client
+    spec:
+      serviceAccountName: webhook-switch-port-client-sa
+      containers:
+      - name: webhook-switch-port-client
+        image: docker.io/g420/polito-switch-port-webhook-client:0.0.1
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: WEBHOOK_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: webhook-switch-port-client-secret
+              key: WEBHOOK_SECRET
+        envFrom:
+        - configMapRef:
+            name: webhook-switch-port-client-config
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3

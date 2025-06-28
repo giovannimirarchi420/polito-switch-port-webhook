@@ -2,6 +2,8 @@
 
 A Python FastAPI webhook service for handling switch port reservation events. This service manages network switch VLAN configurations for individual port reservations.
 
+This webhook has been developed to serve events produced by the [Cloud Resource Reservation System](https://github.com/giovannimirarchi420/cloud-resource-reservation), a comprehensive platform for managing cloud resource reservations with authentication, monitoring, and multi-service orchestration.
+
 ## Overview
 
 This webhook receives switch port reservation events and configures/restores switch port VLAN assignments using Cisco IOS commands via SSH.
