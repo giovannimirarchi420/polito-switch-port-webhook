@@ -160,21 +160,19 @@ class SwitchPortManager:
             self.logger.error(f"Error getting VLAN ID by name '{vlan_name}': {e}")
             return None
     
-    def _assign_port_to_vlan(self, device: ConnectHandler, port_number: int, vlan_id: int) -> bool:
+    def _assign_port_to_vlan(self, device: ConnectHandler, interface_name: str, vlan_id: int) -> bool:
         """
         Assign a switch port to a VLAN.
         
         Args:
             device: Connected netmiko device
-            port_number: Port number to assign
+            interface_name: Name of the interface to assign
             vlan_id: VLAN ID to assign port to
             
         Returns:
             True if successful, False otherwise
         """
         try:
-            interface_name = f"Twe1/0/{port_number}"
-            
             commands = [
                 f"interface {interface_name}",
                 "switchport mode access",
@@ -187,15 +185,15 @@ class SwitchPortManager:
             output = device.send_config_set(commands)
             device.save_config()  # Save configuration
             
-            self.logger.info(f"Assigned port {port_number} to VLAN {vlan_id}")
+            self.logger.info(f"Assigned interface {interface_name} to VLAN {vlan_id}")
             self.logger.debug(f"Port assignment output: {output}")
             return True
             
         except Exception as e:
-            self.logger.error(f"Failed to assign port {port_number} to VLAN {vlan_id}: {e}")
+            self.logger.error(f"Failed to assign interface {interface_name} to VLAN {vlan_id}: {e}")
             return False
     
-    def configure_switch_port(self, port_number: int, vlan_name: str) -> bool:
+    def configure_switch_port(self, interface_name: str, vlan_name: str) -> bool:
         """
         Configure a switch port with a specific VLAN.
         
@@ -205,14 +203,14 @@ class SwitchPortManager:
         3. Enables the port
         
         Args:
-            port_number: Switch port number to configure
+            interface_name: Name of the interface to configure
             vlan_name: Name of the VLAN to assign to the port
             
         Returns:
             True if configuration was successful, False otherwise
         """
-        if not port_number or not vlan_name:
-            self.logger.error("Port number and VLAN name are required")
+        if not interface_name or not vlan_name:
+            self.logger.error("Interface name and VLAN name are required")
             return False
         
         try:
@@ -231,11 +229,11 @@ class SwitchPortManager:
                     return False
                 
                 # Assign port to VLAN
-                if not self._assign_port_to_vlan(device, port_number, vlan_id):
+                if not self._assign_port_to_vlan(device, interface_name, vlan_id):
                     return False
                 
                 self.logger.info(
-                    f"Successfully configured switch port {port_number} with VLAN '{vlan_name}' (ID: {vlan_id})"
+                    f"Successfully configured switch interface {interface_name} with VLAN '{vlan_name}' (ID: {vlan_id})"
                 )
                 return True
                 
@@ -250,18 +248,18 @@ class SwitchPortManager:
             self.logger.error(f"Unexpected error during switch port configuration: {e}")
             return False
     
-    def restore_port_to_default_vlan(self, port_number: int) -> bool:
+    def restore_port_to_default_vlan(self, interface_name: str) -> bool:
         """
         Restore a switch port to the default VLAN.
         
         Args:
-            port_number: Port number to restore
+            interface_name: Name of the interface to restore
             
         Returns:
             True if restoration was successful, False otherwise
         """
-        if not port_number:
-            self.logger.error("Port number is required")
+        if not interface_name:
+            self.logger.error("Interface name is required")
             return False
         
         try:
@@ -270,11 +268,11 @@ class SwitchPortManager:
             
             try:
                 # Assign port to default VLAN
-                if not self._assign_port_to_vlan(device, port_number, config.DEFAULT_VLAN_ID):
+                if not self._assign_port_to_vlan(device, interface_name, config.DEFAULT_VLAN_ID):
                     return False
                 
                 self.logger.info(
-                    f"Successfully restored switch port {port_number} to default VLAN {config.DEFAULT_VLAN_ID}"
+                    f"Successfully restored switch interface {interface_name} to default VLAN {config.DEFAULT_VLAN_ID}"
                 )
                 return True
                 

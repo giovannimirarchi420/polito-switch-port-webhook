@@ -53,7 +53,8 @@ Processes switch port reservation lifecycle events and manages corresponding VLA
 - `vlan_name`: Name of the VLAN to assign to the switch port
 
 **Expected Resource Naming:**
-- Switch port resources should be named: `switch-port-{port_number}` (e.g., `switch-port-1`, `switch-port-24`)
+- Switch port resources should be named with the actual interface name (e.g., `GigabitEthernet1/0/1`, `Twe1/0/24`, `FastEthernet0/1`)
+- The resource name will be used directly as the interface name in switch commands
 
 ### GET /healthz
 Health check endpoint for monitoring.
@@ -73,7 +74,7 @@ curl -X POST http://localhost:5002/webhook \
     "userId": "user-456",
     "username": "giovanni.mirarchi",
     "resourceType": "Switch Port",
-    "resourceName": "switch-port-1",
+    "resourceName": "GigabitEthernet1/0/1",
     "customParameters": "{\"vlan_name\": \"VLAN_USER_123\"}"
   }'
 ```

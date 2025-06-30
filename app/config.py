@@ -83,6 +83,7 @@ class AppConfig:
         # Logging configuration
         self.disable_healthz_logs = os.environ.get("DISABLE_HEALTHZ_LOGS", "true").lower() == "true"
         
+        self.default_vlan_id = os.environ.get("DEFAULT_VLAN_ID", "100")  # Default VLAN ID if not specified
         # Validate required configuration
         self._validate_config()
     
@@ -113,6 +114,7 @@ PORT = config.port
 SWITCH_HOST = config.switch_host
 SWITCH_USERNAME = config.switch_username
 SWITCH_PASSWORD = config.switch_password
+DEFAULT_VLAN_ID = config.default_vlan_id
 DISABLE_HEALTHZ_LOGS = config.disable_healthz_logs
 NOTIFICATION_ENDPOINT = config.notification_endpoint
 NOTIFICATION_TIMEOUT = config.notification_timeout

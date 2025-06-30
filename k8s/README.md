@@ -6,7 +6,6 @@ This directory contains all the Kubernetes manifests needed to deploy the webhoo
 
 - `configmap.yaml` - Configuration for the application
 - `secret.yaml` - Webhook secret (needs to be updated with your actual secret)
-- `rbac.yaml` - ServiceAccount, ClusterRole, and ClusterRoleBinding for Kubernetes API access
 - `deployment.yaml` - Main application deployment
 - `service.yaml` - NodePort service to expose the application
 
@@ -23,7 +22,6 @@ This directory contains all the Kubernetes manifests needed to deploy the webhoo
    ```bash
    kubectl apply -f configmap.yaml
    kubectl apply -f secret.yaml
-   kubectl apply -f rbac.yaml
    kubectl apply -f deployment.yaml
    kubectl apply -f service.yaml
    ```
@@ -49,7 +47,8 @@ This directory contains all the Kubernetes manifests needed to deploy the webhoo
 
 ### Secrets
 - `WEBHOOK_SECRET`: Secret for webhook signature verification
-
+- `SWITCH_USERNAME`: Secret for switch ssh username
+- `SWITCH_PASSWORD`: Secret for switch ssh password
 ## Health Checks
 
 The application provides a health check endpoint at `/healthz` which is used for:

@@ -76,18 +76,15 @@ def _handle_switch_port_start_event(
             logger.error(f"No vlan_name found in custom parameters for switch port '{resource_name}'")
             return False
         
-        # Extract port number from resource name
-        port_number = utils.extract_port_number_from_resource_name(resource_name)
-        if not port_number:
-            logger.error(f"Could not extract port number from resource name '{resource_name}'")
-            return False
+        # Use resource name directly as interface name
+        interface_name = resource_name
         
         # Configure switch port with VLAN
         switch_manager = switch.get_switch_port_manager()
-        success = switch_manager.configure_switch_port(port_number, vlan_name)
+        success = switch_manager.configure_switch_port(interface_name, vlan_name)
         
         if success:
-            logger.info(f"[{EVENT_START}] Successfully configured switch port {port_number} with VLAN '{vlan_name}' (Event ID: {event_id})")
+            logger.info(f"[{EVENT_START}] Successfully configured switch interface {interface_name} with VLAN '{vlan_name}' (Event ID: {event_id})")
             
             # Send success notification
             notification.send_switch_port_notification(
@@ -111,7 +108,7 @@ def _handle_switch_port_start_event(
                 event_id=event_id
             )
         else:
-            logger.error(f"[{EVENT_START}] Failed to configure switch port {port_number} with VLAN '{vlan_name}' (Event ID: {event_id})")
+            logger.error(f"[{EVENT_START}] Failed to configure switch interface {interface_name} with VLAN '{vlan_name}' (Event ID: {event_id})")
             
             # Send failure notification
             notification.send_switch_port_notification(
@@ -150,18 +147,15 @@ def _handle_switch_port_end_event(
     Handle switch port reservation end event. Returns True on success.
     """
     try:
-        # Extract port number from resource name
-        port_number = utils.extract_port_number_from_resource_name(resource_name)
-        if not port_number:
-            logger.error(f"Could not extract port number from resource name '{resource_name}'")
-            return False
+        # Use resource name directly as interface name
+        interface_name = resource_name
         
         # Restore switch port to default VLAN
         switch_manager = switch.get_switch_port_manager()
-        success = switch_manager.restore_port_to_default_vlan(port_number)
+        success = switch_manager.restore_port_to_default_vlan(interface_name)
         
         if success:
-            logger.info(f"[{EVENT_END}] Successfully restored switch port {port_number} to default VLAN (Event ID: {event_id})")
+            logger.info(f"[{EVENT_END}] Successfully restored switch interface {interface_name} to default VLAN (Event ID: {event_id})")
             
             # Send success notification
             notification.send_switch_port_notification(
@@ -185,7 +179,7 @@ def _handle_switch_port_end_event(
                 event_id=event_id
             )
         else:
-            logger.error(f"[{EVENT_END}] Failed to restore switch port {port_number} to default VLAN (Event ID: {event_id})")
+            logger.error(f"[{EVENT_END}] Failed to restore switch interface {interface_name} to default VLAN (Event ID: {event_id})")
             
             # Send failure notification
             notification.send_switch_port_notification(
