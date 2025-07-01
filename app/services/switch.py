@@ -81,16 +81,11 @@ class SwitchPortManager:
             # For now, we'll use a simple VLAN ID assignment strategy
             # In a production environment, you might want more sophisticated VLAN ID management
             
-            # Find an available VLAN ID (starting from 100)
-            vlan_id = self._find_available_vlan_id(device)
-            if not vlan_id:
-                self.logger.error("No available VLAN ID found")
-                return False
-            
+            vlan_description = f"Auto-created VLAN for {vlan_name}"
             commands = [
-                f"vlan {vlan_id}",
+                f"vlan {vlan_name}",
                 f"name {vlan_name}",
-                f"description Auto-created VLAN for switch port reservation",
+                f"description {vlan_description}",
                 "exit"
             ]
             

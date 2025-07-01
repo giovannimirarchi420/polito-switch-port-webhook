@@ -22,15 +22,11 @@ spec:
         ports:
         - containerPort: 8080
           name: http
-        env:
-        - name: WEBHOOK_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: webhook-switch-port-client-secret
-              key: WEBHOOK_SECRET
         envFrom:
         - configMapRef:
             name: webhook-switch-port-client-config
+        - secretRef:
+            name: webhook-switch-port-client-secret
         resources:
           requests:
             memory: "128Mi"
