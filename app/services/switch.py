@@ -93,7 +93,7 @@ class SwitchPortManager:
             output = device.send_config_set(commands)
             device.save_config()  # Save configuration
             
-            self.logger.info(f"Created VLAN {vlan_id} with name '{vlan_name}' on switch")
+            self.logger.info(f"Created VLAN '{vlan_name}' on switch")
             self.logger.debug(f"VLAN creation output: {output}")
             return True
             
