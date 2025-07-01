@@ -32,43 +32,112 @@ class NotificationService:
         # Set default timeout for all requests
         self.session.timeout = config.NOTIFICATION_TIMEOUT
     
-    def _create_payload(
+    def _create_notification_payload(
         self,
         webhook_id: str,
         user_id: str,
-        resource_name: str,
-        success: bool,
-        error_message: Optional[str] = None,
-        event_id: Optional[str] = None
+        message: str,
+        message_type: str = "INFO",
+        event_id: Optional[str] = None,
+        resource_id: Optional[str] = None,
+        event_type: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Create notification payload.
+        Create notification payload following WebhookNotificationRequestDTO structure.
         
         Args:
             webhook_id: Webhook identifier
             user_id: User identifier
-            resource_name: Name of the resource
-            success: Whether the operation was successful
-            error_message: Error message if operation failed
+            message: Notification message (max 500 chars)
+            message_type: Type of message (max 50 chars)
             event_id: Event identifier
+            resource_id: Resource identifier
+            event_type: Type of event
+            metadata: Additional metadata
             
         Returns:
             Notification payload dictionary
         """
+        # Truncate message if too long
+        if len(message) > 500:
+            message = message[:497] + "..."
+            
+        # Truncate type if too long
+        if len(message_type) > 50:
+            message_type = message_type[:50]
+            
         payload = {
             "webhookId": webhook_id,
             "userId": user_id,
-            "resourceName": resource_name,
-            "success": success,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "notificationId": str(uuid.uuid4())
+            "message": message,
+            "type": message_type
         }
         
         if event_id:
             payload["eventId"] = event_id
+        if resource_id:
+            payload["resourceId"] = resource_id
+        if event_type:
+            payload["eventType"] = event_type
+        if metadata:
+            payload["metadata"] = metadata
             
-        if not success and error_message:
-            payload["errorMessage"] = error_message
+        return payload
+    
+    def _create_webhook_log_payload(
+        self,
+        webhook_id: str,
+        event_type: str,
+        payload_data: str,
+        success: bool,
+        status_code: Optional[int] = None,
+        response: Optional[str] = None,
+        retry_count: int = 0,
+        resource_id: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Create webhook log payload following WebhookLogRequestDTO structure.
+        
+        Args:
+            webhook_id: Webhook identifier
+            event_type: Type of the webhook event
+            payload_data: Webhook payload (max 4000 chars)
+            success: Whether the webhook processing was successful
+            status_code: HTTP status code for the response
+            response: Response message (max 4000 chars)
+            retry_count: Number of retries attempted
+            resource_id: Resource identifier
+            metadata: Additional metadata
+            
+        Returns:
+            Webhook log payload dictionary
+        """
+        # Truncate payload if too long
+        if len(payload_data) > 4000:
+            payload_data = payload_data[:3997] + "..."
+            
+        # Truncate response if too long
+        if response and len(response) > 4000:
+            response = response[:3997] + "..."
+            
+        payload = {
+            "webhookId": webhook_id,
+            "eventType": event_type,
+            "payload": payload_data,
+            "success": success,
+            "retryCount": retry_count
+        }
+        
+        if status_code is not None:
+            payload["statusCode"] = status_code
+        if response:
+            payload["response"] = response
+        if resource_id is not None:
+            payload["resourceId"] = resource_id
+        if metadata:
+            payload["metadata"] = metadata
             
         return payload
     
@@ -123,7 +192,8 @@ class NotificationService:
         resource_name: str,
         success: bool,
         error_message: Optional[str] = None,
-        event_id: Optional[str] = None
+        event_id: Optional[str] = None,
+        resource_id: Optional[str] = None
     ) -> bool:
         """
         Send switch port configuration notification.
@@ -135,6 +205,7 @@ class NotificationService:
             success: Whether configuration was successful
             error_message: Error message if configuration failed
             event_id: Event identifier
+            resource_id: Resource identifier
             
         Returns:
             True if notification was sent successfully, False otherwise
@@ -143,8 +214,25 @@ class NotificationService:
             logger.debug("No notification endpoint configured, skipping notification")
             return True
         
-        payload = self._create_payload(
-            webhook_id, user_id, resource_name, success, error_message, event_id
+        # Create message based on success status
+        if success:
+            message = f"Switch port '{resource_name}' configured successfully"
+            message_type = "SUCCESS"
+        else:
+            message = f"Failed to configure switch port '{resource_name}'"
+            if error_message:
+                message += f": {error_message}"
+            message_type = "ERROR"
+        
+        payload = self._create_notification_payload(
+            webhook_id=webhook_id,
+            user_id=user_id,
+            message=message,
+            message_type=message_type,
+            event_id=event_id,
+            resource_id=resource_id,
+            event_type="SWITCH_PORT_CONFIG",
+            metadata={"resourceName": resource_name}
         )
         
         logger.info(f"Sending switch port notification for resource '{resource_name}' (success: {success})")
@@ -155,13 +243,12 @@ class NotificationService:
         webhook_id: str,
         event_type: str,
         success: bool,
-        status_code: int = 200,
-        response_message: str = "OK",
+        payload_data: str = "",
+        status_code: Optional[int] = None,
+        response: Optional[str] = None,
         retry_count: int = 0,
-        resource_name: Optional[str] = None,
-        user_id: Optional[str] = None,
-        error_message: Optional[str] = None,
-        event_id: Optional[str] = None
+        resource_id: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None
     ) -> bool:
         """
         Send webhook event log.
@@ -170,13 +257,12 @@ class NotificationService:
             webhook_id: Webhook identifier
             event_type: Type of the webhook event
             success: Whether the webhook processing was successful
+            payload_data: Webhook payload data
             status_code: HTTP status code for the response
-            response_message: Response message
+            response: Response message
             retry_count: Number of retries attempted
-            resource_name: Name of the resource (optional)
-            user_id: User identifier (optional)
-            error_message: Error message if processing failed (optional)
-            event_id: Event identifier (optional)
+            resource_id: Resource identifier
+            metadata: Additional metadata
             
         Returns:
             True if log was sent successfully, False otherwise
@@ -185,25 +271,17 @@ class NotificationService:
             logger.debug("No webhook log endpoint configured, skipping webhook log")
             return True
         
-        payload = {
-            "webhookId": webhook_id,
-            "eventType": event_type,
-            "success": success,
-            "statusCode": status_code,
-            "responseMessage": response_message,
-            "retryCount": retry_count,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "logId": str(uuid.uuid4())
-        }
-        
-        if resource_name:
-            payload["resourceName"] = resource_name
-        if user_id:
-            payload["userId"] = user_id
-        if error_message:
-            payload["errorMessage"] = error_message
-        if event_id:
-            payload["eventId"] = event_id
+        payload = self._create_webhook_log_payload(
+            webhook_id=webhook_id,
+            event_type=event_type,
+            payload_data=payload_data,
+            success=success,
+            status_code=status_code,
+            response=response,
+            retry_count=retry_count,
+            resource_id=resource_id,
+            metadata=metadata
+        )
         
         logger.info(f"Sending webhook log for event '{event_type}' (success: {success})")
         return self._send_request(config.WEBHOOK_LOG_ENDPOINT, payload, config.WEBHOOK_LOG_TIMEOUT)
@@ -219,7 +297,8 @@ def send_switch_port_notification(
     resource_name: str,
     success: bool,
     error_message: Optional[str] = None,
-    event_id: Optional[str] = None
+    event_id: Optional[str] = None,
+    resource_id: Optional[str] = None
 ) -> bool:
     """
     Send switch port notification (convenience function).
@@ -231,12 +310,13 @@ def send_switch_port_notification(
         success: Whether configuration was successful
         error_message: Error message if configuration failed
         event_id: Event identifier
+        resource_id: Resource identifier
         
     Returns:
         True if notification was sent successfully, False otherwise
     """
     return _notification_service.send_switch_port_notification(
-        webhook_id, user_id, resource_name, success, error_message, event_id
+        webhook_id, user_id, resource_name, success, error_message, event_id, resource_id
     )
 
 
@@ -244,13 +324,12 @@ def send_webhook_log(
     webhook_id: str,
     event_type: str,
     success: bool,
-    status_code: int = 200,
-    response_message: str = "OK",
+    payload_data: str = "",
+    status_code: Optional[int] = None,
+    response: Optional[str] = None,
     retry_count: int = 0,
-    resource_name: Optional[str] = None,
-    user_id: Optional[str] = None,
-    error_message: Optional[str] = None,
-    event_id: Optional[str] = None
+    resource_id: Optional[int] = None,
+    metadata: Optional[Dict[str, Any]] = None
 ) -> bool:
     """
     Send webhook log (convenience function).
@@ -259,18 +338,17 @@ def send_webhook_log(
         webhook_id: Webhook identifier
         event_type: Type of the webhook event
         success: Whether the webhook processing was successful
+        payload_data: Webhook payload data
         status_code: HTTP status code for the response
-        response_message: Response message
+        response: Response message
         retry_count: Number of retries attempted
-        resource_name: Name of the resource (optional)
-        user_id: User identifier (optional)
-        error_message: Error message if processing failed (optional)
-        event_id: Event identifier (optional)
+        resource_id: Resource identifier
+        metadata: Additional metadata
         
     Returns:
         True if log was sent successfully, False otherwise
     """
     return _notification_service.send_webhook_log(
-        webhook_id, event_type, success, status_code, response_message,
-        retry_count, resource_name, user_id, error_message, event_id
+        webhook_id, event_type, success, payload_data, status_code, response,
+        retry_count, resource_id, metadata
     )

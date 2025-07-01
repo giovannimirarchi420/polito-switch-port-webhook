@@ -64,7 +64,8 @@ def _handle_switch_port_start_event(
     resource_name: str,
     custom_parameters: Optional[str],
     event_id: str,
-    user_id: str
+    user_id: str,
+    username: str
 ) -> bool:
     """
     Handle switch port reservation start event. Returns True on success.
@@ -81,7 +82,7 @@ def _handle_switch_port_start_event(
         
         # Configure switch port with VLAN
         switch_manager = switch.get_switch_port_manager()
-        success = switch_manager.configure_switch_port(interface_name, vlan_name)
+        success = switch_manager.configure_switch_port(interface_name, vlan_name, username)
         
         if success:
             logger.info(f"[{EVENT_START}] Successfully configured switch interface {interface_name} with VLAN '{vlan_name}' (Event ID: {event_id})")
@@ -100,12 +101,11 @@ def _handle_switch_port_start_event(
                 webhook_id=event_id,
                 event_type=EVENT_START,
                 success=True,
+                payload_data=f"Switch port '{resource_name}' configured with VLAN '{vlan_name}'",
                 status_code=200,
-                response_message=f"Switch port '{resource_name}' configured with VLAN '{vlan_name}'",
+                response=f"Switch port '{resource_name}' configured with VLAN '{vlan_name}'",
                 retry_count=0,
-                resource_name=resource_name,
-                user_id=user_id,
-                event_id=event_id
+                metadata={"resourceName": resource_name, "userId": user_id, "eventId": event_id, "vlanName": vlan_name}
             )
         else:
             logger.error(f"[{EVENT_START}] Failed to configure switch interface {interface_name} with VLAN '{vlan_name}' (Event ID: {event_id})")
@@ -171,12 +171,11 @@ def _handle_switch_port_end_event(
                 webhook_id=event_id,
                 event_type=EVENT_END,
                 success=True,
+                payload_data=f"Switch port '{resource_name}' restored to default VLAN",
                 status_code=200,
-                response_message=f"Switch port '{resource_name}' restored to default VLAN",
+                response=f"Switch port '{resource_name}' restored to default VLAN",
                 retry_count=0,
-                resource_name=resource_name,
-                user_id=user_id,
-                event_id=event_id
+                metadata={"resourceName": resource_name, "userId": user_id, "eventId": event_id}
             )
         else:
             logger.error(f"[{EVENT_END}] Failed to restore switch interface {interface_name} to default VLAN (Event ID: {event_id})")
@@ -245,7 +244,8 @@ async def handle_webhook(
                 payload.resource_name,
                 payload.custom_parameters,
                 payload.event_id,
-                payload.user_id or "unknown"
+                payload.user_id or "unknown",
+                payload.username
             ):
                 return _create_success_response("configure", payload.resource_name, payload.user_id)
             else:

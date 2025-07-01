@@ -57,7 +57,7 @@ class SwitchPortManager:
         except Exception as e:
             raise SwitchConfigurationError(f"Failed to connect to switch: {e}")
     
-    def _create_or_verify_vlan(self, device: ConnectHandler, vlan_name: str) -> bool:
+    def _create_or_verify_vlan(self, device: ConnectHandler, vlan_name: str, username: str) -> bool:
         """
         Create a VLAN with the given name or verify it exists.
         
@@ -70,12 +70,12 @@ class SwitchPortManager:
         """
         try:
             # Check if VLAN already exists by name
-            show_vlan_output = device.send_command("show vlan brief")
+            # show_vlan_output = device.send_command("show vlan brief")
             
             # Look for the VLAN name in the output
-            if vlan_name in show_vlan_output:
-                self.logger.info(f"VLAN '{vlan_name}' already exists on switch")
-                return True
+            # if vlan_name in show_vlan_output:
+            #     self.logger.info(f"VLAN '{vlan_name}' already exists on switch")
+            #     return True
             
             # VLAN doesn't exist, create it
             # For now, we'll use a simple VLAN ID assignment strategy
@@ -84,7 +84,7 @@ class SwitchPortManager:
             vlan_description = f"Auto-created VLAN for {vlan_name}"
             commands = [
                 f"vlan {vlan_name}",
-                f"name {vlan_name}",
+                f"name prognose-{username}-{vlan_name}",
                 f"description {vlan_description}",
                 "exit"
             ]
@@ -188,7 +188,7 @@ class SwitchPortManager:
             self.logger.error(f"Failed to assign interface {interface_name} to VLAN {vlan_id}: {e}")
             return False
     
-    def configure_switch_port(self, interface_name: str, vlan_name: str) -> bool:
+    def configure_switch_port(self, interface_name: str, vlan_name: str, username: str) -> bool:
         """
         Configure a switch port with a specific VLAN.
         
@@ -214,7 +214,7 @@ class SwitchPortManager:
             
             try:
                 # Create or verify VLAN exists
-                if not self._create_or_verify_vlan(device, vlan_name):
+                if not self._create_or_verify_vlan(device, vlan_name, username):
                     return False
                 
                 # # Get VLAN ID by name
