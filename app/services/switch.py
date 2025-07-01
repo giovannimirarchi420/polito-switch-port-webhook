@@ -217,18 +217,18 @@ class SwitchPortManager:
                 if not self._create_or_verify_vlan(device, vlan_name):
                     return False
                 
-                # Get VLAN ID by name
-                vlan_id = self._get_vlan_id_by_name(device, vlan_name)
-                if not vlan_id:
-                    self.logger.error(f"Could not find VLAN ID for VLAN name '{vlan_name}'")
-                    return False
+                # # Get VLAN ID by name
+                # vlan_id = self._get_vlan_id_by_name(device, vlan_name)
+                # if not vlan_id:
+                #     self.logger.error(f"Could not find VLAN ID for VLAN name '{vlan_name}'")
+                #     return False
                 
                 # Assign port to VLAN
-                if not self._assign_port_to_vlan(device, interface_name, vlan_id):
+                if not self._assign_port_to_vlan(device, interface_name, vlan_name):
                     return False
                 
                 self.logger.info(
-                    f"Successfully configured switch interface {interface_name} with VLAN '{vlan_name}' (ID: {vlan_id})"
+                    f"Successfully configured switch interface {interface_name} with VLAN '{vlan_name}'"
                 )
                 return True
                 
