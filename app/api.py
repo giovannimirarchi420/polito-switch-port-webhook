@@ -277,7 +277,7 @@ async def handle_webhook(
 
     elif isinstance(payload, models.EventWebhookPayload):
         logger.info(
-            f"Processing switch port EVENT_DELETED webhook. "
+            f"Processing switch port {payload.event_type} webhook. "
             f"Resource Name: '{payload.data.resource.name}'."
         )
         

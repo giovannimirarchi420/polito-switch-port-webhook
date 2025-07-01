@@ -65,6 +65,9 @@ class AppConfig:
         self.switch_host = os.environ.get("SWITCH_HOST")
         self.switch_username = os.environ.get("SWITCH_USERNAME")
         self.switch_password = os.environ.get("SWITCH_PASSWORD")
+        self.switch_device_type = os.environ.get("SWITCH_DEVICE_TYPE", "cisco_ios")
+        self.switch_port = int(os.environ.get("SWITCH_PORT", "22"))
+        self.switch_timeout = int(os.environ.get("SWITCH_TIMEOUT", "30"))
         
         # Security configuration
         self.webhook_secret = os.environ.get("WEBHOOK_SECRET")
@@ -97,6 +100,16 @@ class AppConfig:
         
         if not self.webhook_log_endpoint:
             logger.warning("WEBHOOK_LOG_ENDPOINT not configured. Webhook logging will be skipped.")
+        
+        # Validate switch configuration
+        if not self.switch_host:
+            logger.warning("SWITCH_HOST not configured. Switch operations will fail.")
+        
+        if not self.switch_username:
+            logger.warning("SWITCH_USERNAME not configured. Switch authentication will fail.")
+        
+        if not self.switch_password:
+            logger.warning("SWITCH_PASSWORD not configured. Switch authentication will fail.")
 
 
 # Initialize configuration
@@ -114,6 +127,9 @@ PORT = config.port
 SWITCH_HOST = config.switch_host
 SWITCH_USERNAME = config.switch_username
 SWITCH_PASSWORD = config.switch_password
+SWITCH_DEVICE_TYPE = config.switch_device_type
+SWITCH_PORT = config.switch_port
+SWITCH_TIMEOUT = config.switch_timeout
 DEFAULT_VLAN_ID = config.default_vlan_id
 DISABLE_HEALTHZ_LOGS = config.disable_healthz_logs
 NOTIFICATION_ENDPOINT = config.notification_endpoint
