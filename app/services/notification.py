@@ -191,7 +191,8 @@ class NotificationService:
         success: bool,
         error_message: Optional[str] = None,
         event_id: Optional[str] = None,
-        resource_id: Optional[str] = None
+        resource_id: Optional[str] = None,
+        is_reservation_end: bool = False
     ) -> bool:
         """
         Send switch port configuration notification.
@@ -204,6 +205,7 @@ class NotificationService:
             error_message: Error message if configuration failed
             event_id: Event identifier
             resource_id: Resource identifier
+            is_reservation_end: Whether this is a reservation end notification
             
         Returns:
             True if notification was sent successfully, False otherwise
@@ -212,15 +214,25 @@ class NotificationService:
             logger.debug("No notification endpoint configured, skipping notification")
             return True
         
-        # Create message based on success status
-        if success:
-            message = f"Switch port '{resource_name}' configured successfully"
-            message_type = "SUCCESS"
+        # Create message based on success status and reservation state
+        if is_reservation_end:
+            if success:
+                message = f"Switch port reservation for '{resource_name}' has ended successfully"
+                message_type = "INFO"
+            else:
+                message = f"Switch port reservation for '{resource_name}' ended with errors"
+                if error_message:
+                    message += f": {error_message}"
+                message_type = "WARNING"
         else:
-            message = f"Failed to configure switch port '{resource_name}'"
-            if error_message:
-                message += f": {error_message}"
-            message_type = "ERROR"
+            if success:
+                message = f"Switch port '{resource_name}' configured successfully"
+                message_type = "SUCCESS"
+            else:
+                message = f"Failed to configure switch port '{resource_name}'"
+                if error_message:
+                    message += f": {error_message}"
+                message_type = "ERROR"
         
         payload = self._create_notification_payload(
             webhook_id=webhook_id,
@@ -296,7 +308,8 @@ def send_switch_port_notification(
     success: bool,
     error_message: Optional[str] = None,
     event_id: Optional[str] = None,
-    resource_id: Optional[str] = None
+    resource_id: Optional[str] = None,
+    is_reservation_end: bool = False
 ) -> bool:
     """
     Send switch port notification (convenience function).
@@ -309,12 +322,13 @@ def send_switch_port_notification(
         error_message: Error message if configuration failed
         event_id: Event identifier
         resource_id: Resource identifier
+        is_reservation_end: Whether this is a reservation end notification
         
     Returns:
         True if notification was sent successfully, False otherwise
     """
     return _notification_service.send_switch_port_notification(
-        webhook_id, user_id, resource_name, success, error_message, event_id, resource_id
+        webhook_id, user_id, resource_name, success, error_message, event_id, resource_id, is_reservation_end
     )
 
 

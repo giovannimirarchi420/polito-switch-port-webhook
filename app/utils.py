@@ -290,7 +290,8 @@ def handle_switch_port_end_event(
                 resource_name=resource_name,
                 success=True,
                 event_id=event_id,
-                resource_id=resource_id
+                resource_id=resource_id,
+                is_reservation_end=True
             )
             
             # Send webhook log for successful restoration
@@ -316,7 +317,8 @@ def handle_switch_port_end_event(
                 success=False,
                 error_message="Failed to restore switch port to default VLAN",
                 event_id=event_id,
-                resource_id=resource_id
+                resource_id=resource_id,
+                is_reservation_end=True
             )
         
         return success
@@ -332,7 +334,8 @@ def handle_switch_port_end_event(
             success=False,
             error_message=str(e),
             event_id=event_id,
-            resource_id=resource_id
+            resource_id=resource_id,
+            is_reservation_end=True
         )
         
         return False
