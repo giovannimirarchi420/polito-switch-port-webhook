@@ -81,11 +81,9 @@ class SwitchPortManager:
             # For now, we'll use a simple VLAN ID assignment strategy
             # In a production environment, you might want more sophisticated VLAN ID management
             
-            vlan_description = f"Auto-created VLAN for {vlan_name}"
             commands = [
                 f"vlan {vlan_name}",
                 f"name prognose-{username}-{vlan_name}",
-                f"description {vlan_description}",
                 "exit"
             ]
             
