@@ -274,7 +274,8 @@ async def handle_webhook(
                 payload.resource_name,
                 payload.event_id,
                 payload.user_id or "unknown",
-                payload.webhook_id
+                payload.webhook_id,
+                payload.resource_id
             ):
                 return _create_success_response("restore", payload.resource_name, payload.user_id)
             else:
@@ -311,7 +312,8 @@ async def handle_webhook(
                     payload.data.resource.name,
                     str(payload.data.id),
                     payload.data.keycloak_id if payload.data else "unknown",
-                    payload.webhook_id
+                    payload.webhook_id,
+                    payload.resource_id
                 ):
                     logger.info(f"Successfully restored switch port '{payload.data.resource.name}' to default VLAN due to EVENT_DELETED.")
                     return JSONResponse({

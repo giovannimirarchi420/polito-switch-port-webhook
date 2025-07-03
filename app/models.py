@@ -56,4 +56,5 @@ class EventWebhookPayload(BaseModel):
     """Model for EVENT_DELETED webhook payload."""
     event_type: str = Field(..., alias='eventType', description="Type of the event, should be EVENT_DELETED")
     timestamp: datetime = Field(..., description="Timestamp when the event occurred")
+    webhook_id: str = Field(..., alias='webhookId', description="Unique identifier for the webhook")
     data: EventData = Field(..., description="Detailed data for the EVENT_DELETED event")
