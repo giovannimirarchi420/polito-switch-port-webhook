@@ -5,7 +5,7 @@ This module provides FastAPI router with endpoints for processing webhook events
 related to switch port resource reservations with VLAN configuration.
 """
 from typing import Optional, List, Union
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 from fastapi import APIRouter, Request, Header, HTTPException, status
@@ -55,8 +55,7 @@ def _create_success_response(action: str, resource_name: str, user_id: Optional[
     return JSONResponse({
         "status": "success",
         "message": f"Successfully {action}d switch port '{resource_name}'",
-        "userId": user_id,
-        "timestamp": datetime.now().isoformat()
+        "userId": user_id
     })
 
 
