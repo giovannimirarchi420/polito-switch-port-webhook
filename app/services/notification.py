@@ -71,17 +71,12 @@ class NotificationService:
             "webhookId": webhook_id,
             "userId": user_id,
             "message": message,
-            "type": message_type
+            "type": message_type,
+            "eventId": event_id,
+            "resourceId": resource_id,
+            "eventType": event_type,
+            "metadata": metadata
         }
-        
-        if event_id:
-            payload["eventId"] = event_id
-        if resource_id:
-            payload["resourceId"] = resource_id
-        if event_type:
-            payload["eventType"] = event_type
-        if metadata:
-            payload["metadata"] = metadata
             
         return payload
     
@@ -127,17 +122,12 @@ class NotificationService:
             "eventType": event_type,
             "payload": payload_data,
             "success": success,
-            "retryCount": retry_count
+            "statusCode": status_code,
+            "response": response,
+            "retryCount": retry_count,
+            "resourceId": resource_id,
+            "metadata": metadata
         }
-        
-        if status_code is not None:
-            payload["statusCode"] = status_code
-        if response:
-            payload["response"] = response
-        if resource_id is not None:
-            payload["resourceId"] = resource_id
-        if metadata:
-            payload["metadata"] = metadata
             
         return payload
     
@@ -166,6 +156,7 @@ class NotificationService:
                 payload_json = json.dumps(payload, separators=(',', ':')).encode('utf-8')
                 signature = self.security._generate_signature(payload_json)
                 headers["X-Webhook-Signature"] = signature
+                logger.debug(f"Generated signature for payload: {signature}")
             
             response = self.session.post(
                 endpoint,
