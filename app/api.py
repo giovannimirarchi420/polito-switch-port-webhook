@@ -61,17 +61,19 @@ def _create_success_response(action: str, resource_name: str, user_id: Optional[
 
 
 def _handle_switch_port_start_event(
-    resource_name: str,
-    custom_parameters: Optional[str],
-    webhook_id: int,
-    user_id: str,
-    event_id: str,
-    username: str,
-    resource_id: int
+    payload: models.WebhookPayload
 ) -> bool:
     """
     Handle switch port reservation start event. Returns True on success.
     """
+    resource_name = payload.resource_name
+    custom_parameters = payload.custom_parameters
+    webhook_id = payload.webhook_id
+    user_id = payload.user_id or "unknown"
+    event_id = payload.event_id
+    username = payload.username
+    resource_id = payload.resource_id
+
     try:
         # Extract VLAN name from custom parameters
         vlan_name = utils.get_vlan_name_from_custom_params(custom_parameters)
@@ -104,7 +106,7 @@ def _handle_switch_port_start_event(
                 webhook_id=webhook_id,
                 event_type=EVENT_START,
                 success=True,
-                payload_data=f"Switch port '{resource_name}' configured with VLAN '{vlan_name}'",
+                payload=payload.model_dump(),
                 status_code=200,
                 response=f"Switch port '{resource_name}' configured with VLAN '{vlan_name}'",
                 retry_count=0,
@@ -145,15 +147,27 @@ def _handle_switch_port_start_event(
 
 
 def _handle_switch_port_end_event(
-    resource_name: str,
-    event_id: str,
-    user_id: str,
-    webhook_id: int,
-    resource_id: int
+    payload: Union[models.WebhookPayload, models.EventWebhookPayload]
 ) -> bool:
     """
     Handle switch port reservation end event. Returns True on success.
     """
+    if isinstance(payload, models.WebhookPayload):
+        resource_name = payload.resource_name
+        event_id = payload.event_id
+        user_id = payload.user_id or "unknown"
+        webhook_id = payload.webhook_id
+        resource_id = payload.resource_id
+    elif isinstance(payload, models.EventWebhookPayload):
+        resource_name = payload.data.resource.name
+        event_id = str(payload.data.id)
+        user_id = payload.data.keycloak_id if payload.data else "unknown"
+        webhook_id = payload.webhook_id
+        resource_id = payload.data.resource.id
+    else:
+        logger.error("Invalid payload type for switch port end event.")
+        return False
+
     try:
         # Use resource name directly as interface name
         interface_name = resource_name
@@ -180,7 +194,7 @@ def _handle_switch_port_end_event(
                 webhook_id=webhook_id,
                 event_type=EVENT_END,
                 success=True,
-                payload_data=f"Switch port '{resource_name}' restored to default VLAN",
+                payload=payload.model_dump(),
                 status_code=200,
                 response=f"Switch port '{resource_name}' restored to default VLAN",
                 retry_count=0,
@@ -253,13 +267,7 @@ async def handle_webhook(
         # Process the single switch port event
         if payload.event_type == EVENT_START:
             if _handle_switch_port_start_event(
-                payload.resource_name,
-                payload.custom_parameters,
-                payload.webhook_id,
-                payload.user_id or "unknown",
-                payload.event_id,
-                payload.username,
-                payload.resource_id
+                payload
             ):
                 return _create_success_response("configure", payload.resource_name, payload.user_id)
             else:
@@ -271,11 +279,7 @@ async def handle_webhook(
 
         elif payload.event_type == EVENT_END:
             if _handle_switch_port_end_event(
-                payload.resource_name,
-                payload.event_id,
-                payload.user_id or "unknown",
-                payload.webhook_id,
-                payload.resource_id
+                payload
             ):
                 return _create_success_response("restore", payload.resource_name, payload.user_id)
             else:
@@ -309,11 +313,7 @@ async def handle_webhook(
             if reservation_start <= now < reservation_end:
                 logger.info(f"Reservation for switch port '{payload.data.resource.name}' is currently active. Restoring to default VLAN.")
                 if _handle_switch_port_end_event(
-                    payload.data.resource.name,
-                    str(payload.data.id),
-                    payload.data.keycloak_id if payload.data else "unknown",
-                    payload.webhook_id,
-                    payload.data.resource.id
+                    payload
                 ):
                     logger.info(f"Successfully restored switch port '{payload.data.resource.name}' to default VLAN due to EVENT_DELETED.")
                     return JSONResponse({
