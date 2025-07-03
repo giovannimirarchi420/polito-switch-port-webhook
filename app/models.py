@@ -18,6 +18,7 @@ class WebhookPayload(BaseModel):
     event_type: str = Field(..., alias='eventType', description="Type of the event (EVENT_START, EVENT_END)")
     timestamp: datetime = Field(..., description="Timestamp when the event occurred")
     event_id: str = Field(..., alias='eventId', description="Unique identifier for the event")
+    webhook_id: str = Field(..., alias='webhookId', description="Unique identifier for the webhook")
     user_id: Optional[str] = Field(None, alias='userId', description="ID of the user associated with the event")
     username: Optional[str] = Field(None, description="Username of the user")
     email: Optional[str] = Field(None, description="Email address of the user")

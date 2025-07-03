@@ -63,8 +63,9 @@ def _create_success_response(action: str, resource_name: str, user_id: Optional[
 def _handle_switch_port_start_event(
     resource_name: str,
     custom_parameters: Optional[str],
-    event_id: str,
+    webhook_id: str,
     user_id: str,
+    event_id: str,
     username: str
 ) -> bool:
     """
@@ -89,30 +90,30 @@ def _handle_switch_port_start_event(
             
             # Send success notification
             notification.send_switch_port_notification(
-                webhook_id=event_id,
+                webhook_id=webhook_id,
                 user_id=user_id,
                 resource_name=resource_name,
                 success=True,
-                event_id=event_id
+                event_id=webhook_id
             )
             
             # Send webhook log for successful configuration
             notification.send_webhook_log(
-                webhook_id=event_id,
+                webhook_id=webhook_id,
                 event_type=EVENT_START,
                 success=True,
                 payload_data=f"Switch port '{resource_name}' configured with VLAN '{vlan_name}'",
                 status_code=200,
                 response=f"Switch port '{resource_name}' configured with VLAN '{vlan_name}'",
                 retry_count=0,
-                metadata={"resourceName": resource_name, "userId": user_id, "eventId": event_id, "vlanName": vlan_name}
+                metadata={"resourceName": resource_name, "userId": user_id, "webhookId": webhook_id, "vlanName": vlan_name}
             )
         else:
             logger.error(f"[{EVENT_START}] Failed to configure switch interface {interface_name} with VLAN '{vlan_name}' (Event ID: {event_id})")
             
             # Send failure notification
             notification.send_switch_port_notification(
-                webhook_id=event_id,
+                webhook_id=webhook_id,
                 user_id=user_id,
                 resource_name=resource_name,
                 success=False,
@@ -141,7 +142,8 @@ def _handle_switch_port_start_event(
 def _handle_switch_port_end_event(
     resource_name: str,
     event_id: str,
-    user_id: str
+    user_id: str,
+    webhook_id: str
 ) -> bool:
     """
     Handle switch port reservation end event. Returns True on success.
@@ -159,7 +161,7 @@ def _handle_switch_port_end_event(
             
             # Send success notification
             notification.send_switch_port_notification(
-                webhook_id=event_id,
+                webhook_id=webhook_id,
                 user_id=user_id,
                 resource_name=resource_name,
                 success=True,
@@ -168,7 +170,7 @@ def _handle_switch_port_end_event(
             
             # Send webhook log for successful restoration
             notification.send_webhook_log(
-                webhook_id=event_id,
+                webhook_id=webhook_id,
                 event_type=EVENT_END,
                 success=True,
                 payload_data=f"Switch port '{resource_name}' restored to default VLAN",
@@ -182,7 +184,7 @@ def _handle_switch_port_end_event(
             
             # Send failure notification
             notification.send_switch_port_notification(
-                webhook_id=event_id,
+                webhook_id=webhook_id,
                 user_id=user_id,
                 resource_name=resource_name,
                 success=False,
@@ -197,7 +199,7 @@ def _handle_switch_port_end_event(
         
         # Send failure notification
         notification.send_switch_port_notification(
-            webhook_id=event_id,
+            webhook_id=webhook_id,
             user_id=user_id,
             resource_name=resource_name,
             success=False,
@@ -243,9 +245,10 @@ async def handle_webhook(
             if _handle_switch_port_start_event(
                 payload.resource_name,
                 payload.custom_parameters,
-                payload.event_id,
+                payload.webhook_id,
                 payload.user_id or "unknown",
-                payload.username
+                payload.event_id,
+                payload.username,
             ):
                 return _create_success_response("configure", payload.resource_name, payload.user_id)
             else:
@@ -259,7 +262,8 @@ async def handle_webhook(
             if _handle_switch_port_end_event(
                 payload.resource_name,
                 payload.event_id,
-                payload.user_id or "unknown"
+                payload.user_id or "unknown",
+                payload.webhook_id
             ):
                 return _create_success_response("restore", payload.resource_name, payload.user_id)
             else:
@@ -295,7 +299,8 @@ async def handle_webhook(
                 if _handle_switch_port_end_event(
                     payload.data.resource.name,
                     str(payload.data.id),
-                    payload.data.keycloak_id if payload.data else "unknown"
+                    payload.data.keycloak_id if payload.data else "unknown",
+                    payload.webhook_id
                 ):
                     logger.info(f"Successfully restored switch port '{payload.data.resource.name}' to default VLAN due to EVENT_DELETED.")
                     return JSONResponse({
