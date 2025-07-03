@@ -231,7 +231,7 @@ async def handle_webhook(
     Only processes events for Switch Port resource types.
     """
     logger.info(f"Received webhook request. Attempting to parse payload.")
-    
+    logger.debug(f"Payload: {payload}")
     raw_payload = await _verify_webhook_signature(request, x_webhook_signature)
     
     # Handle single event payload format
