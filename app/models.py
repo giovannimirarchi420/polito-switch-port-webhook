@@ -40,7 +40,9 @@ class WebhookPayload(BaseModel):
 class EventResourceInfo(BaseModel):
     """Model for resource information within EVENT_DELETED data."""
     name: str = Field(..., description="Name of the resource to be released")
-
+    id: int = Field(..., description="Unique identifier for the resource")
+    specs: Optional[str] = Field(None, alias='specs', description="Specifications of the resource")
+    location: Optional[str] = Field(None, alias='location', description="Location of the resource")
 
 class EventData(BaseModel):
     """Model for the 'data' field in an EVENT_DELETED payload."""

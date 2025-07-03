@@ -149,12 +149,18 @@ class NotificationService:
             True if successful, False otherwise
         """
         try:
-            headers = {"Content-Type": "application/json"}
+            # Convert payload to JSON bytes for signature generation
+            payload_json = json.dumps(payload, separators=(',', ':'))  # Compact JSON
+            payload_bytes = payload_json.encode('utf-8')
+            
+            headers = {
+                "Content-Type": "application/json",
+                "User-Agent": "switch-port-webhook/1.0"
+            }
             
             # Add signature if webhook secret is configured
             if config.WEBHOOK_SECRET:
-                payload_json = json.dumps(payload, separators=(',', ':')).encode('utf-8')
-                signature = self.security._generate_signature(payload_json)
+                signature = self.security._generate_signature(payload_bytes)
                 headers["X-Webhook-Signature"] = signature
                 logger.debug(f"Generated signature for payload: {signature}")
             
@@ -163,7 +169,7 @@ class NotificationService:
             
             response = self.session.post(
                 endpoint,
-                json=payload,
+                data=payload_bytes,  # Use raw bytes to match signature
                 headers=headers,
                 timeout=timeout
             )
