@@ -66,7 +66,8 @@ def _handle_switch_port_start_event(
     webhook_id: int,
     user_id: str,
     event_id: str,
-    username: str
+    username: str,
+    resource_id: int
 ) -> bool:
     """
     Handle switch port reservation start event. Returns True on success.
@@ -94,7 +95,8 @@ def _handle_switch_port_start_event(
                 user_id=user_id,
                 resource_name=resource_name,
                 success=True,
-                event_id=webhook_id
+                event_id=event_id,
+                resource_id=resource_id
             )
             
             # Send webhook log for successful configuration
@@ -106,7 +108,8 @@ def _handle_switch_port_start_event(
                 status_code=200,
                 response=f"Switch port '{resource_name}' configured with VLAN '{vlan_name}'",
                 retry_count=0,
-                metadata={"resourceName": resource_name, "userId": user_id, "webhookId": webhook_id, "vlanName": vlan_name}
+                metadata={"resourceName": resource_name, "userId": user_id, "webhookId": webhook_id, "vlanName": vlan_name},
+                resource_id=resource_id
             )
         else:
             logger.error(f"[{EVENT_START}] Failed to configure switch interface {interface_name} with VLAN '{vlan_name}' (Event ID: {event_id})")
@@ -118,7 +121,8 @@ def _handle_switch_port_start_event(
                 resource_name=resource_name,
                 success=False,
                 error_message=f"Failed to configure switch port with VLAN '{vlan_name}'",
-                event_id=event_id
+                event_id=event_id,
+                resource_id=resource_id
             )
         
         return success
@@ -133,7 +137,8 @@ def _handle_switch_port_start_event(
             resource_name=resource_name,
             success=False,
             error_message=str(e),
-            event_id=event_id
+            event_id=event_id,
+            resource_id=resource_id
         )
         
         return False
@@ -143,7 +148,8 @@ def _handle_switch_port_end_event(
     resource_name: str,
     event_id: str,
     user_id: str,
-    webhook_id: int
+    webhook_id: int,
+    resource_id: int
 ) -> bool:
     """
     Handle switch port reservation end event. Returns True on success.
@@ -165,7 +171,8 @@ def _handle_switch_port_end_event(
                 user_id=user_id,
                 resource_name=resource_name,
                 success=True,
-                event_id=event_id
+                event_id=event_id,
+                resource_id=resource_id
             )
             
             # Send webhook log for successful restoration
@@ -177,7 +184,8 @@ def _handle_switch_port_end_event(
                 status_code=200,
                 response=f"Switch port '{resource_name}' restored to default VLAN",
                 retry_count=0,
-                metadata={"resourceName": resource_name, "userId": user_id, "eventId": event_id}
+                metadata={"resourceName": resource_name, "userId": user_id, "eventId": event_id},
+                resource_id=resource_id
             )
         else:
             logger.error(f"[{EVENT_END}] Failed to restore switch interface {interface_name} to default VLAN (Event ID: {event_id})")
@@ -189,7 +197,8 @@ def _handle_switch_port_end_event(
                 resource_name=resource_name,
                 success=False,
                 error_message="Failed to restore switch port to default VLAN",
-                event_id=event_id
+                event_id=event_id,
+                resource_id=resource_id
             )
         
         return success
@@ -204,7 +213,8 @@ def _handle_switch_port_end_event(
             resource_name=resource_name,
             success=False,
             error_message=str(e),
-            event_id=event_id
+            event_id=event_id,
+            resource_id=resource_id
         )
         
         return False
@@ -249,6 +259,7 @@ async def handle_webhook(
                 payload.user_id or "unknown",
                 payload.event_id,
                 payload.username,
+                payload.resource_id
             ):
                 return _create_success_response("configure", payload.resource_name, payload.user_id)
             else:
