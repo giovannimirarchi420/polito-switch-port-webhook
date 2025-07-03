@@ -34,7 +34,7 @@ class NotificationService:
     
     def _create_notification_payload(
         self,
-        webhook_id: str,
+        webhook_id: int,
         user_id: str,
         message: str,
         message_type: str = "INFO",
@@ -82,7 +82,7 @@ class NotificationService:
     
     def _create_webhook_log_payload(
         self,
-        webhook_id: str,
+        webhook_id: int,
         event_type: str,
         payload_data: str,
         success: bool,
@@ -178,7 +178,7 @@ class NotificationService:
     
     def send_switch_port_notification(
         self,
-        webhook_id: str,
+        webhook_id: int,
         user_id: str,
         resource_name: str,
         success: bool,
@@ -231,7 +231,7 @@ class NotificationService:
     
     def send_webhook_log(
         self,
-        webhook_id: str,
+        webhook_id: int,
         event_type: str,
         success: bool,
         payload_data: str = "",
@@ -283,7 +283,7 @@ _notification_service = NotificationService()
 
 
 def send_switch_port_notification(
-    webhook_id: str,
+    webhook_id: int,
     user_id: str,
     resource_name: str,
     success: bool,
@@ -312,7 +312,7 @@ def send_switch_port_notification(
 
 
 def send_webhook_log(
-    webhook_id: str,
+    webhook_id: int,
     event_type: str,
     success: bool,
     payload_data: str = "",

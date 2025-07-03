@@ -63,7 +63,7 @@ def _create_success_response(action: str, resource_name: str, user_id: Optional[
 def _handle_switch_port_start_event(
     resource_name: str,
     custom_parameters: Optional[str],
-    webhook_id: str,
+    webhook_id: int,
     user_id: str,
     event_id: str,
     username: str
@@ -143,7 +143,7 @@ def _handle_switch_port_end_event(
     resource_name: str,
     event_id: str,
     user_id: str,
-    webhook_id: str
+    webhook_id: int
 ) -> bool:
     """
     Handle switch port reservation end event. Returns True on success.
