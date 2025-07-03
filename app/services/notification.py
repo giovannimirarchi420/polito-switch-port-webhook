@@ -158,6 +158,9 @@ class NotificationService:
                 headers["X-Webhook-Signature"] = signature
                 logger.debug(f"Generated signature for payload: {signature}")
             
+            logger.debug(f"Sending request to {endpoint} with payload: {payload}")
+            logger.debug(f"Request headers: {headers}")
+            
             response = self.session.post(
                 endpoint,
                 json=payload,
