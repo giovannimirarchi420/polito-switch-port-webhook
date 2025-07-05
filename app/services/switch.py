@@ -57,33 +57,23 @@ class SwitchPortManager:
         except Exception as e:
             raise SwitchConfigurationError(f"Failed to connect to switch: {e}")
     
-    def _create_or_verify_vlan(self, device: ConnectHandler, vlan_name: str, username: str) -> bool:
+    def _create_or_verify_vlan(self, device: ConnectHandler, vlan_id: str, username: str) -> bool:
         """
-        Create a VLAN with the given name or verify it exists.
+        Create a VLAN with the given ID or verify it exists.
         
         Args:
             device: Connected netmiko device
-            vlan_name: Name of the VLAN to create/verify
+            vlan_id: ID of the VLAN to create/verify
+            username: Username for VLAN naming
             
         Returns:
             True if successful, False otherwise
         """
         try:
-            # Check if VLAN already exists by name
-            # show_vlan_output = device.send_command("show vlan brief")
-            
-            # Look for the VLAN name in the output
-            # if vlan_name in show_vlan_output:
-            #     self.logger.info(f"VLAN '{vlan_name}' already exists on switch")
-            #     return True
-            
-            # VLAN doesn't exist, create it
-            # For now, we'll use a simple VLAN ID assignment strategy
-            # In a production environment, you might want more sophisticated VLAN ID management
-            
+            # Create or verify VLAN exists
             commands = [
-                f"vlan {vlan_name}",
-                f"name prognose-{username}-{vlan_name}",
+                f"vlan {vlan_id}",
+                f"name prognose-{username}-{vlan_id}",
                 "exit"
             ]
             
@@ -91,12 +81,12 @@ class SwitchPortManager:
             output = device.send_config_set(commands)
             device.save_config()  # Save configuration
             
-            self.logger.info(f"Created VLAN '{vlan_name}' on switch")
+            self.logger.info(f"Created/verified VLAN '{vlan_id}' on switch")
             self.logger.debug(f"VLAN creation output: {output}")
             return True
             
         except Exception as e:
-            self.logger.error(f"Failed to create/verify VLAN '{vlan_name}': {e}")
+            self.logger.error(f"Failed to create/verify VLAN '{vlan_id}': {e}")
             return False
     
     def _find_available_vlan_id(self, device: ConnectHandler, start_id: int = 100) -> Optional[int]:
@@ -128,6 +118,9 @@ class SwitchPortManager:
         """
         Get VLAN ID by name.
         
+        Note: This method is kept for backward compatibility and potential future use.
+        Currently, VLAN IDs are passed directly from custom parameters.
+        
         Args:
             device: Connected netmiko device
             vlan_name: Name of the VLAN
@@ -153,7 +146,67 @@ class SwitchPortManager:
             self.logger.error(f"Error getting VLAN ID by name '{vlan_name}': {e}")
             return None
     
-    def _assign_port_to_vlan(self, device: ConnectHandler, interface_name: str, vlan_id: int) -> bool:
+    def get_interfaces_using_vlan(self, vlan_id: str) -> list:
+        """
+        Get list of interfaces that are currently using the specified VLAN.
+        
+        Args:
+            vlan_id: ID of the VLAN to check
+            
+        Returns:
+            List of interface names using the VLAN, empty list if none found or error
+        """
+        try:
+            device = self._connect_to_switch()
+            
+            try:
+                # Get interfaces using this specific VLAN
+                show_vlan_output = device.send_command(f"show vlan id {vlan_id}")
+                
+                # Check if VLAN doesn't exist
+                if "not found in current VLAN database" in show_vlan_output:
+                    self.logger.debug(f"VLAN ID '{vlan_id}' does not exist on switch")
+                    return []
+                
+                # Parse the output to find interfaces for this VLAN
+                lines = show_vlan_output.split('\n')
+                interfaces = []
+                
+                # Look for the line containing the VLAN ID and ports
+                for line in lines:
+                    line = line.strip()
+                    if line.startswith(str(vlan_id)):
+                        # Split the line and get interface information
+                        parts = line.split()
+                        if len(parts) >= 4:
+                            # The interfaces are typically in the 4th column and beyond
+                            interface_part = ' '.join(parts[3:])
+                            # Parse comma-separated interfaces
+                            if interface_part.strip():
+                                interface_names = [iface.strip() for iface in interface_part.split(',')]
+                                interfaces.extend(interface_names)
+                    elif line and not line.startswith(str(vlan_id)) and not line.startswith('VLAN') and not line.startswith('----'):
+                        # This might be a continuation line with more interfaces
+                        # Check if it looks like interface names
+                        if any(keyword in line.lower() for keyword in ['gi', 'fa', 'eth', 'te', 'tw']):
+                            interface_names = [iface.strip() for iface in line.split(',')]
+                            interfaces.extend(interface_names)
+                
+                return interfaces
+                
+            finally:
+                device.disconnect()
+                
+        except Exception as e:
+            # If the VLAN doesn't exist, the command might fail - that's normal
+            if "invalid" in str(e).lower() or "not found" in str(e).lower():
+                self.logger.debug(f"VLAN ID '{vlan_id}' does not exist on switch")
+                return []
+            else:
+                self.logger.error(f"Error getting interfaces using VLAN ID '{vlan_id}': {e}")
+                return []
+    
+    def _assign_port_to_vlan(self, device: ConnectHandler, interface_name: str, vlan_id: str) -> bool:
         """
         Assign a switch port to a VLAN.
         
@@ -186,7 +239,7 @@ class SwitchPortManager:
             self.logger.error(f"Failed to assign interface {interface_name} to VLAN {vlan_id}: {e}")
             return False
     
-    def configure_switch_port(self, interface_name: str, vlan_name: str, username: str) -> bool:
+    def configure_switch_port(self, interface_name: str, vlan_id: str, username: str) -> bool:
         """
         Configure a switch port with a specific VLAN.
         
@@ -197,13 +250,14 @@ class SwitchPortManager:
         
         Args:
             interface_name: Name of the interface to configure
-            vlan_name: Name of the VLAN to assign to the port
+            vlan_id: ID of the VLAN to assign to the port
+            username: Username for VLAN naming
             
         Returns:
             True if configuration was successful, False otherwise
         """
-        if not interface_name or not vlan_name:
-            self.logger.error("Interface name and VLAN name are required")
+        if not interface_name or not vlan_id:
+            self.logger.error("Interface name and VLAN ID are required")
             return False
         
         try:
@@ -212,21 +266,15 @@ class SwitchPortManager:
             
             try:
                 # Create or verify VLAN exists
-                if not self._create_or_verify_vlan(device, vlan_name, username):
+                if not self._create_or_verify_vlan(device, vlan_id, username):
                     return False
                 
-                # # Get VLAN ID by name
-                # vlan_id = self._get_vlan_id_by_name(device, vlan_name)
-                # if not vlan_id:
-                #     self.logger.error(f"Could not find VLAN ID for VLAN name '{vlan_name}'")
-                #     return False
-                
                 # Assign port to VLAN
-                if not self._assign_port_to_vlan(device, interface_name, vlan_name):
+                if not self._assign_port_to_vlan(device, interface_name, vlan_id):
                     return False
                 
                 self.logger.info(
-                    f"Successfully configured switch interface {interface_name} with VLAN '{vlan_name}'"
+                    f"Successfully configured switch interface {interface_name} with VLAN ID '{vlan_id}'"
                 )
                 return True
                 

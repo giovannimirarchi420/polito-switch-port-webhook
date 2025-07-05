@@ -50,7 +50,7 @@ This service is focused only on switch port VLAN configuration and does **NOT** 
 Processes switch port reservation lifecycle events and manages corresponding VLAN configurations.
 
 **Expected Custom Parameters:**
-- `vlan_name`: Name of the VLAN to assign to the switch port
+- `vlan_id`: ID of the VLAN to assign to the switch port
 
 **Expected Resource Naming:**
 - Switch port resources should be named with the actual interface name (e.g., `GigabitEthernet1/0/1`, `Twe1/0/24`, `FastEthernet0/1`)
@@ -84,7 +84,7 @@ curl -X POST http://localhost:5002/webhook \
 This webhook configures Cisco IOS switches with the following operations:
 
 ### EVENT_START (Port Reservation)
-1. Extracts `vlan_name` from `customParameters`
+1. Extracts VLAN ID from `vlan_id` field in `customParameters`
 2. Creates the VLAN if it doesn't exist
 3. Assigns the switch port to the VLAN
 4. Enables the port
@@ -101,10 +101,10 @@ This webhook configures Cisco IOS switches with the following operations:
   "timestamp": "2025-06-28T14:30:00.000Z",
   "eventId": "event-123",
   "userId": "user-456",
-  "username": "giovanni.mirarchi",
+  "username": "jhon.smith",
   "resourceType": "Switch Port",
   "resourceName": "switch-port-24",
-  "customParameters": "{\"vlan_name\": \"VLAN_RESEARCH_LAB\"}"
+  "customParameters": "{\"vlan_id\": \"100\"}"
 }
 ```
 

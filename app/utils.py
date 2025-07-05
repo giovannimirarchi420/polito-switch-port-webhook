@@ -74,18 +74,18 @@ def has_custom_parameters(custom_params_str: Optional[str]) -> bool:
     return bool(custom_params)
 
 
-def get_vlan_name_from_custom_params(custom_params_str: Optional[str]) -> Optional[str]:
+def get_vlan_id_from_custom_params(custom_params_str: Optional[str]) -> Optional[str]:
     """
-    Extract vlan_name from custom parameters.
+    Extract vlan_id from custom parameters.
     
     Args:
         custom_params_str: JSON serialized string of custom parameters
         
     Returns:
-        VLAN name if present, None otherwise
+        VLAN ID if present, None otherwise
     """
     custom_params = parse_custom_parameters(custom_params_str)
-    return get_custom_parameter(custom_params, "vlan_name")
+    return get_custom_parameter(custom_params, "vlan_id")
 
 
 def parse_timestamp(timestamp_str: str) -> datetime:
@@ -179,21 +179,39 @@ def handle_switch_port_start_event(
     resource_id = payload.resource_id
 
     try:
-        # Extract VLAN name from custom parameters
-        vlan_name = get_vlan_name_from_custom_params(custom_parameters)
-        if not vlan_name:
-            logger.error(f"No vlan_name found in custom parameters for switch port '{resource_name}'")
+        # Extract VLAN ID from custom parameters
+        vlan_id = get_vlan_id_from_custom_params(custom_parameters)
+        if not vlan_id:
+            logger.error(f"No vlan_id found in custom parameters for switch port '{resource_name}'")
             return False
         
         # Use resource name directly as interface name
         interface_name = resource_name
         
-        # Configure switch port with VLAN
+        # Check for VLAN conflicts before configuring
         switch_manager = switch.get_switch_port_manager()
-        success = switch_manager.configure_switch_port(interface_name, vlan_name, username)
+        conflicting_interfaces = switch_manager.get_interfaces_using_vlan(vlan_id)
+        
+        # If there are conflicting interfaces, send warning notification
+        if conflicting_interfaces:
+            logger.warning(f"VLAN ID '{vlan_id}' is already in use by interfaces: {', '.join(conflicting_interfaces)}")
+            
+            # Send VLAN conflict notification
+            notification.send_vlan_conflict_notification(
+                webhook_id=webhook_id,
+                user_id=user_id,
+                resource_name=resource_name,
+                vlan_id=vlan_id,
+                conflicting_interfaces=conflicting_interfaces,
+                event_id=event_id,
+                resource_id=resource_id
+            )
+        
+        # Configure switch port with VLAN (proceed even if there are conflicts)
+        success = switch_manager.configure_switch_port(interface_name, vlan_id, username)
         
         if success:
-            logger.info(f"[{EVENT_START}] Successfully configured switch interface {interface_name} with VLAN '{vlan_name}' (Event ID: {event_id})")
+            logger.info(f"[{EVENT_START}] Successfully configured switch interface {interface_name} with VLAN ID '{vlan_id}' (Event ID: {event_id})")
             
             # Send success notification
             notification.send_switch_port_notification(
@@ -212,13 +230,13 @@ def handle_switch_port_start_event(
                 success=True,
                 payload_data=json.dumps(payload.model_dump()),
                 status_code=200,
-                response=f"Switch port '{resource_name}' configured with VLAN '{vlan_name}'",
+                response=f"Switch port '{resource_name}' configured with VLAN ID '{vlan_id}'",
                 retry_count=0,
-                metadata={"resourceName": resource_name, "userId": user_id, "webhookId": webhook_id, "vlanName": vlan_name},
+                metadata={"resourceName": resource_name, "userId": user_id, "webhookId": webhook_id, "vlanId": vlan_id},
                 resource_id=resource_id
             )
         else:
-            logger.error(f"[{EVENT_START}] Failed to configure switch interface {interface_name} with VLAN '{vlan_name}' (Event ID: {event_id})")
+            logger.error(f"[{EVENT_START}] Failed to configure switch interface {interface_name} with VLAN ID '{vlan_id}' (Event ID: {event_id})")
             
             # Send failure notification
             notification.send_switch_port_notification(
@@ -226,7 +244,7 @@ def handle_switch_port_start_event(
                 user_id=user_id,
                 resource_name=resource_name,
                 success=False,
-                error_message=f"Failed to configure switch port with VLAN '{vlan_name}'",
+                error_message=f"Failed to configure switch port with VLAN ID '{vlan_id}'",
                 event_id=event_id,
                 resource_id=resource_id
             )

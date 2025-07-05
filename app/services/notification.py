@@ -217,7 +217,7 @@ class NotificationService:
         # Create message based on success status and reservation state
         if is_reservation_end:
             if success:
-                message = f"Switch port reservation for '{resource_name}' has ended successfully"
+                message = f"Switch port reservation for '{resource_name}' has ended"
                 message_type = "INFO"
             else:
                 message = f"Switch port reservation for '{resource_name}' ended with errors"
@@ -246,6 +246,57 @@ class NotificationService:
         )
         
         logger.info(f"Sending switch port notification for resource '{resource_name}' (success: {success})")
+        return self._send_request(config.NOTIFICATION_ENDPOINT, payload, config.NOTIFICATION_TIMEOUT)
+    
+    def send_vlan_conflict_notification(
+        self,
+        webhook_id: int,
+        user_id: str,
+        resource_name: str,
+        vlan_id: str,
+        conflicting_interfaces: list,
+        event_id: Optional[str] = None,
+        resource_id: Optional[str] = None
+    ) -> bool:
+        """
+        Send notification about VLAN conflicts.
+        
+        Args:
+            webhook_id: Webhook identifier
+            user_id: User identifier
+            resource_name: Name of the resource requesting the VLAN
+            vlan_id: ID of the VLAN that has conflicts
+            conflicting_interfaces: List of interfaces already using the VLAN
+            event_id: Event identifier
+            resource_id: Resource identifier
+            
+        Returns:
+            True if notification was sent successfully, False otherwise
+        """
+        if not config.NOTIFICATION_ENDPOINT:
+            logger.debug("No notification endpoint configured, skipping VLAN conflict notification")
+            return True
+        
+        # Create message with conflict details
+        interfaces_str = ", ".join(conflicting_interfaces)
+        message = f"VLAN ID '{vlan_id}' requested for switch port '{resource_name}' is already in use by interfaces: {interfaces_str}"
+        
+        payload = self._create_notification_payload(
+            webhook_id=webhook_id,
+            user_id=user_id,
+            message=message,
+            message_type="WARNING",
+            event_id=event_id,
+            resource_id=resource_id,
+            event_type="VLAN_CONFLICT",
+            metadata={
+                "resourceName": resource_name,
+                "vlanId": vlan_id,
+                "conflictingInterfaces": conflicting_interfaces
+            }
+        )
+        
+        logger.info(f"Sending VLAN conflict notification for resource '{resource_name}' and VLAN ID '{vlan_id}'")
         return self._send_request(config.NOTIFICATION_ENDPOINT, payload, config.NOTIFICATION_TIMEOUT)
     
     def send_webhook_log(
@@ -329,6 +380,35 @@ def send_switch_port_notification(
     """
     return _notification_service.send_switch_port_notification(
         webhook_id, user_id, resource_name, success, error_message, event_id, resource_id, is_reservation_end
+    )
+
+
+def send_vlan_conflict_notification(
+    webhook_id: int,
+    user_id: str,
+    resource_name: str,
+    vlan_id: str,
+    conflicting_interfaces: list,
+    event_id: Optional[str] = None,
+    resource_id: Optional[str] = None
+) -> bool:
+    """
+    Send VLAN conflict notification (convenience function).
+    
+    Args:
+        webhook_id: Webhook identifier
+        user_id: User identifier
+        resource_name: Name of the resource requesting the VLAN
+        vlan_id: ID of the VLAN that has conflicts
+        conflicting_interfaces: List of interfaces already using the VLAN
+        event_id: Event identifier
+        resource_id: Resource identifier
+            
+    Returns:
+        True if notification was sent successfully, False otherwise
+    """
+    return _notification_service.send_vlan_conflict_notification(
+        webhook_id, user_id, resource_name, vlan_id, conflicting_interfaces, event_id, resource_id
     )
 
 
