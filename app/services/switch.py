@@ -114,38 +114,6 @@ class SwitchPortManager:
             self.logger.error(f"Error finding available VLAN ID: {e}")
             return None
     
-    def _get_vlan_id_by_name(self, device: ConnectHandler, vlan_name: str) -> Optional[int]:
-        """
-        Get VLAN ID by name.
-        
-        Note: This method is kept for backward compatibility and potential future use.
-        Currently, VLAN IDs are passed directly from custom parameters.
-        
-        Args:
-            device: Connected netmiko device
-            vlan_name: Name of the VLAN
-            
-        Returns:
-            VLAN ID if found, None otherwise
-        """
-        try:
-            show_vlan_output = device.send_command("show vlan brief")
-            
-            # Parse the output to find VLAN ID by name
-            lines = show_vlan_output.split('\n')
-            for line in lines:
-                if vlan_name in line:
-                    # Extract VLAN ID from the line
-                    parts = line.split()
-                    if parts and parts[0].isdigit():
-                        return int(parts[0])
-            
-            return None
-            
-        except Exception as e:
-            self.logger.error(f"Error getting VLAN ID by name '{vlan_name}': {e}")
-            return None
-    
     def get_interfaces_using_vlan(self, vlan_id: str) -> list:
         """
         Get list of interfaces that are currently using the specified VLAN.
@@ -172,27 +140,44 @@ class SwitchPortManager:
                 lines = show_vlan_output.split('\n')
                 interfaces = []
                 
-                # Look for the line containing the VLAN ID and ports
-                for line in lines:
-                    line = line.strip()
-                    if line.startswith(str(vlan_id)):
-                        # Split the line and get interface information
-                        parts = line.split()
-                        if len(parts) >= 4:
-                            # The interfaces are typically in the 4th column and beyond
-                            interface_part = ' '.join(parts[3:])
-                            # Parse comma-separated interfaces
-                            if interface_part.strip():
-                                interface_names = [iface.strip() for iface in interface_part.split(',')]
-                                interfaces.extend(interface_names)
-                    elif line and not line.startswith(str(vlan_id)) and not line.startswith('VLAN') and not line.startswith('----'):
-                        # This might be a continuation line with more interfaces
-                        # Check if it looks like interface names
-                        if any(keyword in line.lower() for keyword in ['gi', 'fa', 'eth', 'te', 'tw']):
-                            interface_names = [iface.strip() for iface in line.split(',')]
-                            interfaces.extend(interface_names)
+                # Find the header line and locate the Ports column
+                header_found = False
+                ports_column_start = -1
                 
-                return interfaces
+                for i, line in enumerate(lines):
+                    line = line.strip()
+                    
+                    # Look for the header line with "Ports"
+                    if "VLAN" in line and "Name" in line and "Status" in line and "Ports" in line:
+                        header_found = True
+                        ports_column_start = line.find("Ports")
+                        continue
+                    
+                    # Skip separator lines
+                    if line.startswith('----'):
+                        continue
+                    
+                    # If we found the header and this line starts with our VLAN ID
+                    if header_found and line.startswith(str(vlan_id)):
+                        # Extract the ports column content
+                        if ports_column_start >= 0 and len(line) > ports_column_start:
+                            ports_part = line[ports_column_start:].strip()
+                            
+                            # Parse comma-separated interfaces
+                            if ports_part:
+                                interface_names = [iface.strip() for iface in ports_part.split(',') if iface.strip()]
+                                interfaces.extend(interface_names)
+                        break
+                
+                # Clean up the interface names - remove any non-interface entries
+                cleaned_interfaces = []
+                for interface in interfaces:
+                    # Only keep entries that look like interface names
+                    if interface and any(interface.lower().startswith(prefix) for prefix in 
+                                       ['gi', 'fa', 'eth', 'te', 'tw', 'hu', 'ae', 'xe']):
+                        cleaned_interfaces.append(interface)
+                
+                return cleaned_interfaces
                 
             finally:
                 device.disconnect()
