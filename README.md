@@ -13,17 +13,9 @@ This webhook receives switch port reservation events and configures/restores swi
 - **Switch Port Configuration**: Automatically assigns switch ports to specific VLANs based on custom parameters
 - **VLAN Management**: Creates VLANs dynamically and manages port assignments
 - **Port Restoration**: Restores ports to default VLAN when reservations end
-- **Single Event Processing**: Processes individual switch port events (migrated from batch processing)
 - **Security**: HMAC signature verification for webhook security
 - **Monitoring**: Health checks and comprehensive logging
 - **Switch Integration**: Supports Cisco IOS switches via SSH/Netmiko
-
-## Key Differences from Original
-
-This service is focused only on switch port VLAN configuration and does **NOT** include:
-- Server provisioning/deprovisioning
-- BareMetalHost management
-- Kubernetes integration
 
 ## Configuration
 
@@ -33,16 +25,17 @@ This service is focused only on switch port VLAN configuration and does **NOT** 
 |----------|------|----------|---------|-------------|
 | `PORT` | integer | No | `5002` | HTTP server listening port |
 | `LOG_LEVEL` | string | No | `INFO` | Logging level |
-| `SWITCH_HOST` | string | No | `192.168.24.67` | Switch IP address or hostname |
-| `SWITCH_USERNAME` | string | No | `admin` | Switch SSH username |
-| `SWITCH_PASSWORD` | string | No | `admin` | Switch SSH password |
+| `SWITCH_HOST` | string | Yes |  | Switch IP address or hostname |
+| `SWITCH_USERNAME` | string | Yes |  | Switch SSH username |
+| `SWITCH_PASSWORD` | string | Yes |  | Switch SSH password |
 | `SWITCH_DEVICE_TYPE` | string | No | `cisco_ios` | Netmiko device type |
 | `SWITCH_PORT` | integer | No | `22` | Switch SSH port |
 | `SWITCH_TIMEOUT` | integer | No | `30` | Switch connection timeout |
 | `DEFAULT_VLAN_ID` | integer | No | `10` | Default VLAN for port restoration |
-| `WEBHOOK_SECRET` | string | No | None | Shared secret for HMAC verification |
-| `NOTIFICATION_ENDPOINT` | string | No | None | External endpoint for notifications |
-| `WEBHOOK_LOG_ENDPOINT` | string | No | None | External endpoint for webhook logs |
+| `WEBHOOK_SECRET` | string | No |  | Shared secret for HMAC verification |
+| `NOTIFICATION_ENDPOINT` | string | No |  | External endpoint for notifications |
+| `WEBHOOK_LOG_ENDPOINT` | string | No |  | External endpoint for webhook logs |
+| `DISABLE_HEALTHZ_LOGS` | boolean | No | true | Disable healthz logs (for k8s probes) |
 
 ## API Endpoints
 
@@ -75,7 +68,7 @@ curl -X POST http://localhost:5002/webhook \
     "username": "giovanni.mirarchi",
     "resourceType": "Switch Port",
     "resourceName": "GigabitEthernet1/0/1",
-    "customParameters": "{\"vlan_name\": \"VLAN_USER_123\"}"
+    "customParameters": "{\"vlan_id\": \"VLAN_USER_123\"}"
   }'
 ```
 
@@ -90,24 +83,38 @@ This webhook configures Cisco IOS switches with the following operations:
 4. Enables the port
 
 ### EVENT_END (Port Release)
-1. Restores the switch port to the default VLAN (ID: 10)
+1. Restores the switch port to the default VLAN
 2. Enables the port
 
 ## Example Webhook Payload
 
 ```json
 {
-  "eventType": "EVENT_START",
-  "timestamp": "2025-06-28T14:30:00.000Z",
-  "eventId": "event-123",
-  "userId": "user-456",
-  "username": "jhon.smith",
-  "resourceType": "Switch Port",
-  "resourceName": "switch-port-24",
-  "customParameters": "{\"vlan_id\": \"100\"}"
+{
+   "eventType":"EVENT_START",
+   "timestamp":"2025-07-06T08:55:07.5631405Z",
+   "eventId":"103",
+   "webhookId":3,
+   "userId":"bdb072ee-eebd-4bf9-8ce3-bfeaadb95542",
+   "username":"admin",
+   "email":"test@example.it",
+   "sshPublicKey":"ssh-rsa AAAAB3Nz...",
+   "eventTitle":"Switch Port Reservation",
+   "eventDescription":"",
+   "eventStart":"2025-07-06T09:00:00Z",
+   "eventEnd":"2025-07-06T09:54:09.536Z",
+   "customParameters":"{\"vlan_id\":\"987\"}",
+   "resourceId":4,
+   "resourceName":"Hu1/0/1",
+   "resourceType":"Switch Port",
+   "resourceSpecs":"Switch 100Gbps, Hu1/0/1",
+   "resourceLocation":"RESTART",
+   "siteId":"59d52cfc-650c-41e6-9688-eb5ef0899968",
+   "siteName":"Polito"
+}
 }
 ```
 
 ## Deployment
 
-See the `Dockerfile` for containerized deployment. The service can be deployed in Kubernetes alongside the server provisioning webhook.
+See the `Dockerfile` for containerized deployment.
